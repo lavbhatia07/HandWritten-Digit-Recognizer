@@ -127,7 +127,7 @@ body::before {
     font-weight: 600;
     line-height: 1.25;
     min-height: 82px;
-    text-align: center;
+    text-align: left;
     cursor: pointer;
     transition: all var(--transition);
 }
@@ -143,17 +143,16 @@ body::before {
 
 .btn-icon {
     flex: 0 0 auto;
-    min-width: 34px;
-    height: 34px;
-    padding: 0 8px;
-    border-radius: 999px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.08);
     color: var(--accent-light);
-    font-size: 0.72rem;
-    font-weight: 800;
+    font-size: 1.18rem;
+    font-weight: 700;
     letter-spacing: 0;
 }
 
