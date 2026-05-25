@@ -1,79 +1,71 @@
 """
-Train a deployment-safe handwritten digit model for digits 1 through 9.
+Train a lightweight deployment-safe digit recognizer for digits 1 through 9.
 
-The model is saved in the modern Keras format as digit_model.keras so Render
-does not need to deserialize the older, incompatible digit_model.h5 file.
+This creates digit_model.npz from synthetic digit samples, avoiding TensorFlow
+startup memory issues on Render free instances.
 """
 
 import os
 from pathlib import Path
 
+import cv2
 import numpy as np
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import Conv2D, Dense, Dropout, Flatten, Input, MaxPooling2D
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.utils import to_categorical
 
 
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = Path(os.environ.get("MODEL_PATH", BASE_DIR / "digit_model.keras")).resolve()
-NUM_CLASSES = 9
+MODEL_PATH = Path(os.environ.get("MODEL_PATH", BASE_DIR / "digit_model.npz")).resolve()
+DIGITS = range(1, 10)
+FONTS = [
+    cv2.FONT_HERSHEY_SIMPLEX,
+    cv2.FONT_HERSHEY_PLAIN,
+    cv2.FONT_HERSHEY_DUPLEX,
+    cv2.FONT_HERSHEY_COMPLEX,
+]
 
 
-def build_model() -> Sequential:
-    return Sequential([
-        Input(shape=(28, 28, 1)),
-        Conv2D(32, (3, 3), activation="relu", padding="same"),
-        MaxPooling2D((2, 2)),
-        Conv2D(64, (3, 3), activation="relu", padding="same"),
-        MaxPooling2D((2, 2)),
-        Flatten(),
-        Dense(128, activation="relu"),
-        Dropout(0.35),
-        Dense(NUM_CLASSES, activation="softmax"),
-    ])
+def render_digit(digit: int, font: int, scale: float, thickness: int, angle: float, dx: int, dy: int) -> np.ndarray:
+    canvas = np.zeros((28, 28), dtype=np.uint8)
+    text = str(digit)
+    (tw, th), baseline = cv2.getTextSize(text, font, scale, thickness)
+    x = (28 - tw) // 2 + dx
+    y = (28 + th) // 2 + dy
+    cv2.putText(canvas, text, (x, y), font, scale, 255, thickness, cv2.LINE_AA)
+
+    matrix = cv2.getRotationMatrix2D((14, 14), angle, 1.0)
+    canvas = cv2.warpAffine(canvas, matrix, (28, 28), flags=cv2.INTER_LINEAR, borderValue=0)
+    canvas = cv2.GaussianBlur(canvas, (3, 3), 0)
+    return canvas.astype("float32") / 255.0
 
 
-def prepare_digits_1_to_9(images: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    keep = labels != 0
-    images = images[keep].astype("float32") / 255.0
-    labels = labels[keep] - 1
-
-    images = images.reshape(-1, 28, 28, 1)
-    labels = to_categorical(labels, NUM_CLASSES)
-    return images, labels
+def normalize_sample(sample: np.ndarray) -> np.ndarray:
+    vector = sample.reshape(-1).astype("float32")
+    norm = np.linalg.norm(vector)
+    if norm > 0:
+        vector = vector / norm
+    return vector
 
 
 def main() -> None:
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_train, y_train = prepare_digits_1_to_9(x_train, y_train)
-    x_test, y_test = prepare_digits_1_to_9(x_test, y_test)
+    samples = []
+    labels = []
 
-    model = build_model()
-    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+    for digit in DIGITS:
+        for font in FONTS:
+            for scale in (0.75, 0.85, 0.95, 1.05, 1.15):
+                for thickness in (1, 2, 3):
+                    for angle in (-14, -8, -4, 0, 4, 8, 14):
+                        for dx, dy in ((0, 0), (-2, 0), (2, 0), (0, -2), (0, 2)):
+                            sample = render_digit(digit, font, scale, thickness, angle, dx, dy)
+                            samples.append(normalize_sample(sample))
+                            labels.append(digit)
 
-    early_stop = EarlyStopping(
-        monitor="val_accuracy",
-        patience=2,
-        restore_best_weights=True,
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        MODEL_PATH,
+        samples=np.asarray(samples, dtype="float32"),
+        labels=np.asarray(labels, dtype="int64"),
     )
-
-    model.fit(
-        x_train,
-        y_train,
-        batch_size=128,
-        epochs=6,
-        validation_data=(x_test, y_test),
-        callbacks=[early_stop],
-        verbose=1,
-    )
-
-    loss, accuracy = model.evaluate(x_test, y_test, verbose=0)
-    print(f"Test accuracy for digits 1-9: {accuracy * 100:.2f}%")
-
-    model.save(MODEL_PATH)
-    print(f"Model saved to {MODEL_PATH}")
+    print(f"Saved lightweight digit model to {MODEL_PATH} with {len(labels)} samples")
 
 
 if __name__ == "__main__":

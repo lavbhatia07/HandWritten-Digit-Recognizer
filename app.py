@@ -1,6 +1,6 @@
 """
 Handwritten Digit Classification — Flask Backend
-Loads a trained Keras model (digit_model.keras) and serves predictions
+Loads a lightweight trained model (digit_model.npz) and serves predictions
 for uploaded or camera-captured digit images.
 """
 
@@ -10,15 +10,42 @@ from pathlib import Path
 import numpy as np
 import cv2
 from flask import Flask, request, jsonify, render_template
-from tensorflow.keras.models import load_model
 
 # ─── App Configuration ───────────────────────────────────────────────
-app = Flask(__name__)
+app = Flask(__name__, template_folder=".", static_folder=".", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024  # 4 MB upload limit
 
 # ─── Load Model Once at Startup ──────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = Path(os.environ.get("MODEL_PATH", BASE_DIR / "digit_model.keras")).resolve()
+MODEL_PATH = Path(os.environ.get("MODEL_PATH", BASE_DIR / "digit_model.npz")).resolve()
+
+
+def load_digit_model(model_path: Path) -> dict[str, np.ndarray]:
+    data = np.load(model_path)
+    return {
+        "samples": data["samples"].astype("float32"),
+        "labels": data["labels"].astype("int64"),
+    }
+
+
+def predict_digit(tensor: np.ndarray) -> tuple[int | None, float]:
+    vector = tensor.reshape(-1).astype("float32")
+    norm = np.linalg.norm(vector)
+    if norm == 0:
+        return None, 0.0
+
+    vector = vector / norm
+    similarities = model["samples"] @ vector
+    best_indices = np.argsort(similarities)[-9:]
+
+    scores = {}
+    for index in best_indices:
+        label = int(model["labels"][index])
+        scores[label] = scores.get(label, 0.0) + float(max(similarities[index], 0.0))
+
+    predicted_digit = max(scores, key=scores.get)
+    confidence = min(max(scores[predicted_digit] / 9.0, 0.0), 1.0)
+    return predicted_digit, confidence
 
 
 try:
@@ -31,7 +58,7 @@ try:
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"Model file not found after training at {MODEL_PATH}")
 
-    model = load_model(MODEL_PATH, compile=False)
+    model = load_digit_model(MODEL_PATH)
     model_load_error = None
     print(f"[SUCCESS] Model loaded from {MODEL_PATH}")
 except Exception as e:
@@ -290,9 +317,7 @@ def predict():
         return jsonify({"prediction": None, "message": f"Processing error: {str(e)}"}), 400
 
     try:
-        predictions = model.predict(tensor, verbose=0)
-        predicted_digit = int(np.argmax(predictions[0])) + 1
-        confidence = float(np.max(predictions[0]))
+        predicted_digit, confidence = predict_digit(tensor)
         
         # Log for debugging
         print(f"Prediction: {predicted_digit}, Confidence: {confidence:.4f}")
@@ -364,9 +389,7 @@ def predict_canvas():
         tensor = normalized.reshape(1, 28, 28, 1)
 
         # ── Prediction ──────────────────────────────────────────────
-        predictions = model.predict(tensor, verbose=0)
-        predicted_digit = int(np.argmax(predictions[0])) + 1
-        confidence = float(np.max(predictions[0]))
+        predicted_digit, confidence = predict_digit(tensor)
 
         # ── Confidence Handling ─────────────────────────────────────
         if confidence < 0.5:

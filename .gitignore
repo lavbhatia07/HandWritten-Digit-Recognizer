@@ -3,4 +3,5 @@ __pycache__/
 debug_images/
 digit_model.h5
 digit_model.keras
+digit_model.npz
 .env
