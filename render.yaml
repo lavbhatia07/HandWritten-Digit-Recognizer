@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: handwritten-digit-recognizer
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python train_model.py
+    startCommand: gunicorn app:app --timeout 300
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: MODEL_PATH
+        value: /opt/render/project/src/digit_model.keras

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Handwritten digit recognition for digits 1 through 9. Upload, capture, or draw a digit and get instant predictions.">
+    <title>Digit Recognizer 1-9</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <header class="header">
+        <h1>Digit Recognizer 1-9</h1>
+        <p>Upload, capture, or draw a handwritten digit from 1 to 9.</p>
+    </header>
+
+    <main class="container">
+        <section class="card">
+            <div class="card-title">Input</div>
+
+            <div class="input-options">
+                <button class="btn" id="uploadBtn" type="button">
+                    <span class="btn-icon">Folder</span> Upload Image
+                </button>
+                <button class="btn" id="cameraBtn" type="button">
+                    <span class="btn-icon">Camera</span> Use Camera
+                </button>
+                <button class="btn" id="drawBtn" type="button">
+                    <span class="btn-icon">Draw</span> Draw Digit
+                </button>
+            </div>
+
+            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/bmp,image/webp">
+
+            <div class="draw-section" id="drawSection">
+                <div class="canvas-container">
+                    <canvas id="mainCanvas" width="280" height="280"></canvas>
+                </div>
+                <div class="canvas-controls">
+                    <button class="btn" id="clearCanvasBtn" type="button">Clear</button>
+                    <button class="btn btn-primary" id="predictCanvasBtn" type="button">Predict Drawing</button>
+                </div>
+            </div>
+
+            <div class="preview-area" id="previewArea">
+                <div class="preview-wrapper">
+                    <img id="previewImage" src="" alt="Preview of uploaded digit">
+                    <button class="clear-btn" id="clearBtn" title="Remove image">x</button>
+                </div>
+            </div>
+
+            <div class="camera-view" id="cameraView">
+                <video id="cameraFeed" autoplay playsinline></video>
+                <div class="camera-controls">
+                    <button class="btn" id="captureBtn" type="button">Capture</button>
+                    <button class="btn" id="closeCameraBtn" type="button">Close</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="predict-section" id="predictSection">
+            <button class="btn btn-primary" id="predictBtn" type="button" style="width:100%;">
+                Predict Digit
+            </button>
+        </div>
+
+        <div class="spinner" id="spinner">
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+        </div>
+
+        <section class="card result-area" id="resultArea">
+            <div class="card-title">Result</div>
+            <div id="resultContent"></div>
+        </section>
+    </main>
+
+    <footer class="footer">Powered by TensorFlow and Flask</footer>
+
+    <canvas id="captureCanvas" style="display:none;"></canvas>
+    <script src="/static/script.js"></script>
+</body>
+</html>

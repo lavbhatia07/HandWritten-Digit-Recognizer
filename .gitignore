@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+debug_images/
+digit_model.h5
+digit_model.keras
+.env
